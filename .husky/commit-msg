@@ -1,0 +1,1 @@
+uv run --quiet cz check --commit-msg-file "$1"

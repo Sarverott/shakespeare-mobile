@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=https://taskfile.dev/schema.json
+
+version: '3'
+
+tasks:
+  default:
+    cmds:
+      - task --list
+    silent: true
+
+  sync:
+    desc: Copy shared info from metadata.json into package.json, pyproject.toml and lockfiles
+    cmds:
+      - uv run --quiet python scripts/sync_metadata.py
+
+  sync:check:
+    desc: Fail if package.json or pyproject.toml drifted from metadata.json
+    cmds:
+      - uv run --quiet python scripts/sync_metadata.py --check
+
+  test:
+    desc: Run checks
+    cmds:
+      - task: sync:check
+
+  commit:
+    desc: Commit with commitizen (conventional message prompt)
+    interactive: true
+    cmds:
+      - uv run cz commit
+
+  bump:
+    desc: Bump version from commit history (metadata.json, pyproject, npm files, lockfiles), changelog and tag
+    cmds:
+      - uv run cz bump {{.CLI_ARGS}}
