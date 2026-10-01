@@ -1,0 +1,87 @@
+name: PR Tests & Security Checks
+
+on:
+  pull_request:
+    branches: [development, revision, testing, releasing, master]
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  conventions:
+    name: Commit Messages & Metadata Sync
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Install tooling
+        run: uv sync --frozen
+
+      - name: Check commit messages (Conventional Commits)
+        if: github.event_name == 'pull_request'
+        run: uv run cz check --rev-range "${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}"
+
+      - name: Check package.json and pyproject.toml match metadata.json
+        run: uv run python scripts/sync_metadata.py --check
+
+  android:
+    name: Unit Tests & Android Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build web app and prepare Android project
+        uses: ./.github/actions/build-web
+
+      - name: Run unit tests
+        working-directory: android
+        run: ./gradlew :app:testDebugUnitTest --no-daemon --stacktrace
+
+      - name: Run Android lint
+        working-directory: android
+        run: ./gradlew lintDebug --no-daemon
+
+  audit:
+    name: NPM Security Audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Audit npm dependencies (fails on critical)
+        run: npm audit --audit-level=critical
+
+  auto-merge:
+    name: Auto-Merge PR (on Success)
+    needs: [conventions, android, audit]
+    runs-on: ubuntu-latest
+    # only PRs from this repository; forks get no secrets and must be merged by hand
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Enable Auto-Merge
+        env:
+          # FLOW_TOKEN, so the merge push triggers auto-pr.yml for the next stage
+          GH_TOKEN: ${{ secrets.FLOW_TOKEN || secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          PR_NUMBER="${{ github.event.pull_request.number }}"
+          echo "Merging PR #$PR_NUMBER (all checks passed)..."
+          # --auto waits for branch protection rules if any; otherwise merge directly
+          gh pr merge "$PR_NUMBER" --auto --merge || gh pr merge "$PR_NUMBER" --merge
