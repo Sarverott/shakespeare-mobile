@@ -1,0 +1,52 @@
+name: Build web app and prepare Android project
+description: >
+  Clones shakespeare-gui next to this repository (package.json links it as file:../shakespeare-gui),
+  builds the GUI plugin and the app core into src/gui, syncs it into the Android project
+  and sets up JDK 21 for Gradle.
+
+inputs:
+  gui-ref:
+    description: Branch or tag of Sarverott/shakespeare-gui to build against
+    required: false
+    default: master
+
+runs:
+  using: composite
+  steps:
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '24'
+        cache: npm
+
+    - name: Clone shakespeare-gui
+      shell: bash
+      run: git clone --depth 1 --branch "${{ inputs.gui-ref }}" https://github.com/Sarverott/shakespeare-gui.git ../shakespeare-gui
+
+    - name: Build shakespeare-gui plugin
+      shell: bash
+      working-directory: ../shakespeare-gui
+      env:
+        HUSKY: '0'
+      run: |
+        npm ci
+        npm run build:lib
+
+    - name: Build app core
+      shell: bash
+      env:
+        HUSKY: '0'
+      run: |
+        npm ci
+        npm run build
+
+    - name: Sync web build into Android project
+      shell: bash
+      run: npx cap sync android
+
+    - name: Set up JDK 21
+      uses: actions/setup-java@v4
+      with:
+        java-version: '21'
+        distribution: temurin
+        cache: gradle
