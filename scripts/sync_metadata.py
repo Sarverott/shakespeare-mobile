@@ -27,6 +27,14 @@ def parse_person(text):
     return {key: value for key, value in match.groupdict().items() if value}
 
 
+def own_repo(meta):
+    """The link ending with this project's name, else the first link."""
+    for link in meta["links"]:
+        if link.rstrip("/").rsplit("/", 1)[-1] == meta["name"]:
+            return link
+    return meta["links"][0]
+
+
 def sync_package_json(meta, data):
     data["name"] = meta["name"]
     data["version"] = meta["version"]
@@ -38,7 +46,7 @@ def sync_package_json(meta, data):
         data["contributors"] = persons[1:]
     else:
         data.pop("contributors", None)
-    repo = meta["links"][0]
+    repo = own_repo(meta)
     data["homepage"] = f"{repo}#readme"
     data["bugs"] = {"url": f"{repo}/issues"}
     data["repository"] = {"type": "git", "url": f"git+{repo}.git"}
@@ -68,7 +76,7 @@ def sync_pyproject(meta, doc):
             entry["email"] = person["email"]
         authors.append(entry)
     project["authors"] = authors.multiline(True)
-    repo = meta["links"][0]
+    repo = own_repo(meta)
     urls = tomlkit.table()
     urls["Homepage"] = repo
     urls["Repository"] = repo

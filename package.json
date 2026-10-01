@@ -1,8 +1,9 @@
 {
   "name": "shakespeare-mobile",
   "version": "0.0.1",
-  "description": "TODO - ctrl+",
+  "description": "mobile app for android and ios with optimised UX special design and with rich featchers, easy-to-use friendly UI and advanced mechanics targeted to hard task with one simple assumption: \"𝐖𝐑𝐈𝐓𝐄 𝐀 𝐁𝐎𝐎𝐊\" - for writters to writters to write books easier, better and with results attchiving faster",
   "keywords": [
+    "shakespeare",
     "android",
     "ios"
   ],
@@ -15,11 +16,12 @@
     "url": "git+https://github.com/Sarverott/shakespeare-mobile.git"
   },
   "license": "CC-BY-SA-4.0",
-  "author": "Sarverott",
+  "author": "Sett Sarverott A.A.B. <sett@sarverott.com> (https://sett.sarverott.com)",
   "type": "commonjs",
   "main": "index.js",
   "scripts": {
-    "test": "task"
+    "test": "task test",
+    "prepare": "husky"
   },
   "dependencies": {
     "@capacitor/android": "^8.5.2",

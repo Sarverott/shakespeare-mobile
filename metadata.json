@@ -1,0 +1,21 @@
+{
+    "name": "shakespeare-mobile",
+    "description": "mobile app for android and ios with optimised UX special design and with rich featchers, easy-to-use friendly UI and advanced mechanics targeted to hard task with one simple assumption: \"𝐖𝐑𝐈𝐓𝐄 𝐀 𝐁𝐎𝐎𝐊\" - for writters to writters to write books easier, better and with results attchiving faster",
+    "version": "0.0.1",
+    "authors":[
+        ["Sarverott", "Sett Sarverott A.A.B. <sett@sarverott.com> (https://sett.sarverott.com)", "https://sarverott.com"]
+    ],
+    "links": [
+        "https://github.com/Sarverott/shakespeare",
+        "https://github.com/Sarverott/shakespeare-webapp",
+        "https://github.com/Sarverott/shakespeare-desktop",
+        "https://github.com/Sarverott/shakespeare-mobile",
+        "https://github.com/Sarverott/shakespeare-server",
+        "https://github.com/Sarverott/shakespeare-gui"
+    ],
+    "tags": [
+        "shakespeare",
+        "android",
+        "ios"
+    ]
+}

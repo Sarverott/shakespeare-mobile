@@ -351,18 +351,22 @@ wheels = [
 
 [[package]]
 name = "shakespeare-mobile"
-version = "0.1.0"
+version = "0.0.1"
 source = { editable = "." }
 
 [package.dev-dependencies]
 dev = [
     { name = "commitizen" },
+    { name = "tomlkit" },
 ]
 
 [package.metadata]
 
 [package.metadata.requires-dev]
-dev = [{ name = "commitizen", specifier = ">=4.19.0" }]
+dev = [
+    { name = "commitizen", specifier = ">=4.19.0" },
+    { name = "tomlkit", specifier = ">=0.15.1" },
+]
 
 [[package]]
 name = "termcolor"

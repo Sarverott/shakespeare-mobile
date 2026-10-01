@@ -1,16 +1,22 @@
 [project]
 name = "shakespeare-mobile"
-version = "0.1.0"
-description = "Add your description here"
+version = "0.0.1"
+description = "mobile app for android and ios with optimised UX special design and with rich featchers, easy-to-use friendly UI and advanced mechanics targeted to hard task with one simple assumption: \"𝐖𝐑𝐈𝐓𝐄 𝐀 𝐁𝐎𝐎𝐊\" - for writters to writters to write books easier, better and with results attchiving faster"
 readme = "README.md"
 authors = [
-    { name = "Sett Sarverott", email = "sett@sarverott.com" }
+    {name = "Sett Sarverott A.A.B.", email = "sett@sarverott.com"},
 ]
 requires-python = ">=3.12"
 dependencies = []
+keywords = ["shakespeare", "android", "ios"]
 
 [project.scripts]
 shakespeare-mobile = "shakespeare_mobile:main"
+
+[project.urls]
+Homepage = "https://github.com/Sarverott/shakespeare-mobile"
+Repository = "https://github.com/Sarverott/shakespeare-mobile"
+Issues = "https://github.com/Sarverott/shakespeare-mobile/issues"
 
 [build-system]
 requires = ["uv_build>=0.12.20,<0.13.0"]
@@ -19,4 +25,14 @@ build-backend = "uv_build"
 [dependency-groups]
 dev = [
     "commitizen>=4.19.0",
+    "tomlkit>=0.15.1",
 ]
+
+[tool.commitizen]
+name = "cz_conventional_commits"
+version_provider = "uv"
+version_files = ['metadata.json:"version"']
+tag_format = "v$version"
+update_changelog_on_bump = true
+major_version_zero = true
+pre_bump_hooks = ["task sync"]
