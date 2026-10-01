@@ -1,4 +1,14 @@
+import groovy.json.JsonSlurper
+
 apply plugin: 'com.android.application'
+
+// App version comes from package.json, which `task sync` fills from metadata.json.
+// versionCode packs X.Y.Z as X*10000 + Y*100 + Z, so Y and Z must stay below 100.
+def appVersion = new JsonSlurper().parse(file('../../package.json')).version
+def (versionMajor, versionMinor, versionPatch) = appVersion.tokenize('.-+')[0..2]*.toInteger()
+
+// Release signing is configured only when the keystore is provided through the environment (CI secrets).
+def releaseKeystore = System.getenv('ANDROID_KEYSTORE_PATH')
 
 android {
     namespace = "com.sarverott.shakespeare"
@@ -7,8 +17,8 @@ android {
         applicationId "com.sarverott.shakespeare"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        versionCode versionMajor * 10000 + versionMinor * 100 + versionPatch
+        versionName appVersion
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -16,8 +26,21 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        if (releaseKeystore) {
+            release {
+                storeFile file(releaseKeystore)
+                storePassword System.getenv('ANDROID_KEYSTORE_PASSWORD')
+                keyAlias System.getenv('ANDROID_KEY_ALIAS')
+                keyPassword System.getenv('ANDROID_KEY_PASSWORD')
+            }
+        }
+    }
     buildTypes {
         release {
+            if (releaseKeystore) {
+                signingConfig signingConfigs.release
+            }
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
