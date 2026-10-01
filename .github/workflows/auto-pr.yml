@@ -1,0 +1,67 @@
+name: Auto Create Pull Request
+
+# Moves work one step along the branch flow:
+#   feature/**, fix/** → development → revision → testing → releasing → master
+#
+# Uses the FLOW_TOKEN secret (fine-grained PAT: contents + pull requests read/write).
+# PRs opened with the default GITHUB_TOKEN would not trigger pr-checks.yml.
+
+on:
+  push:
+    branches:
+      - development
+      - revision
+      - testing
+      - releasing
+      - 'feature/**'
+      - 'fix/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  create-pr:
+    name: Open PR to next stage
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create Pull Request for the next stage
+        env:
+          GH_TOKEN: ${{ secrets.FLOW_TOKEN || secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          HEAD: ${{ github.ref_name }}
+        run: |
+          case "$HEAD" in
+            feature/*|fix/*) BASE=development ;;
+            development)     BASE=revision ;;
+            revision)        BASE=testing ;;
+            testing)         BASE=releasing ;;
+            releasing)       BASE=master ;;
+            *) echo "Branch $HEAD is not part of the flow, nothing to do."; exit 0 ;;
+          esac
+          echo "Flow step: $HEAD → $BASE"
+
+          AHEAD=$(gh api "repos/$GH_REPO/compare/$BASE...$HEAD" --jq '.ahead_by')
+          if [ "$AHEAD" = "0" ]; then
+            echo "$HEAD has no commits ahead of $BASE, nothing to propose."
+            exit 0
+          fi
+
+          EXISTING_PR=$(gh pr list --head "$HEAD" --base "$BASE" --state open --json number --jq '.[0].number')
+          if [ -n "$EXISTING_PR" ]; then
+            echo "Pull Request #$EXISTING_PR is already open for $HEAD → $BASE."
+            exit 0
+          fi
+
+          gh pr create \
+            --base "$BASE" \
+            --head "$HEAD" \
+            --title "Merge $HEAD into $BASE" \
+            --body "### Automated Pull Request
+
+          - **Source Branch:** \`$HEAD\`
+          - **Target Branch:** \`$BASE\`
+          - **Trigger Commit:** \`${{ github.sha }}\`
+
+          This Pull Request was opened automatically. It will be merged automatically once all checks pass."
