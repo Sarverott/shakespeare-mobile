@@ -19,10 +19,6 @@ export default defineConfig({
       closeBundle: () => writeFileSync(`${outDir}/.gitkeep`, ""),
     },
   ],
-  // shakespeare-gui provides/injects its controllers by class name, minification must not rename them
-  esbuild: {
-    keepNames: true,
-  },
   resolve: {
     // shakespeare-gui is linked from ../shakespeare-gui, make it use this app's Vue
     dedupe: ["vue"],
@@ -30,5 +26,11 @@ export default defineConfig({
   build: {
     outDir,
     emptyOutDir: true,
+    rolldownOptions: {
+      output: {
+        // shakespeare-gui provides/injects its controllers by class name, minification must not rename them
+        keepNames: true,
+      },
+    },
   },
 });
