@@ -1,2 +1,5 @@
 node_modules
 .venv
+# build output, Capacitor webDir
+src/gui/*
+!src/gui/.gitkeep

@@ -33,3 +33,40 @@ tasks:
     desc: Bump version from commit history (metadata.json, pyproject, npm files, lockfiles), changelog and tag
     cmds:
       - uv run cz bump {{.CLI_ARGS}}
+
+  install:
+    desc: Install npm and uv dependencies (shakespeare-gui is linked from ../shakespeare-gui)
+    cmds:
+      - npm install
+      - uv sync
+
+  gui:
+    desc: Build the shakespeare-gui plugin this app depends on
+    dir: ../shakespeare-gui
+    cmds:
+      - npm run build:lib
+
+  dev:
+    desc: Run the app core in the browser with hot reload
+    deps: [gui]
+    cmds:
+      - npm run dev
+
+  build:
+    desc: Build the app core into src/gui (Capacitor webDir)
+    deps: [gui]
+    cmds:
+      - npm run build
+
+  cap:sync:
+    desc: Build and copy the web app plus plugins into the native projects
+    cmds:
+      - task: build
+      - npx cap sync
+
+  android:
+    desc: Build, sync and open the Android project in Android Studio
+    cmds:
+      - task: build
+      - npx cap sync android
+      - npx cap open android
