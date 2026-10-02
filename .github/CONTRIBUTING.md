@@ -83,6 +83,17 @@ On every commit, husky runs two hooks:
   `metadata.json`**, and never change the version by hand.
 - **commit-msg** rejects messages that don't follow Conventional Commits.
 
+**Routines** are optional steps switched on in `.husky/bos.config.json`;
+`task hooks:routines` shows which are on.
+
+- **`auto_gitaddall_before_commit`:** `task commit` stages everything first.
+  With a plain `git commit`, the hook adds the rest only when something was
+  already staged, because git stops before any hook runs when nothing is staged.
+- **`auto_push_after_commit`:** after each commit, the branch is pushed, and
+  its upstream is set if needed. It never pushes `master`, a detached HEAD, or
+  commits made during a rebase, merge or cherry-pick. A failed push only prints
+  a warning, because the commit is already made.
+
 ## The craft loop
 
 Work goes around a loop of branches, one pull request per step:
