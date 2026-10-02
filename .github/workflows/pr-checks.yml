@@ -31,16 +31,14 @@ jobs:
       base_sha: ${{ steps.pr.outputs.base_sha }}
       head_sha: ${{ steps.pr.outputs.head_sha }}
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Read PR
         id: pr
         env:
           GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-          NUMBER: ${{ github.event.pull_request.number || inputs.pr }}
-        run: |
-          gh pr view "$NUMBER" --json number,baseRefOid,headRefOid,baseRefName,headRefName \
-            --jq '"number=\(.number)\nbase_sha=\(.baseRefOid)\nhead_sha=\(.headRefOid)\nbranches=\(.headRefName) → \(.baseRefName)"' \
-            | tee -a "$GITHUB_OUTPUT"
+        run: scripts/delegated/workflow-gh/pr-checks/resolve-pr.sh "${{ github.event.pull_request.number || inputs.pr }}"
 
   conventions:
     name: Commit Messages & Metadata Sync
