@@ -1,0 +1,29 @@
+# Self-hosted GitHub Actions runners, one ephemeral runner per container.
+# Start with `task up` (fills ACCESS_TOKEN from `gh auth token`), scale with RUNNERS=n.
+name: shakespeare-gh-runners
+
+services:
+  runner:
+    build: .
+    image: shakespeare-gh-runner
+    init: true
+    restart: unless-stopped
+    # time for the entrypoint to deregister the runner on `docker compose down`
+    stop_grace_period: 30s
+    environment:
+      REPOSITORY: ${REPOSITORY:-Sarverott/shakespeare-mobile}
+      ACCESS_TOKEN: ${ACCESS_TOKEN:?set ACCESS_TOKEN, or start with `task up`}
+      RUNNER_LABELS: ${RUNNER_LABELS:-shakespeare,android}
+      RUNNER_PREFIX: ${RUNNER_PREFIX:-shakespeare}
+    volumes:
+      # caches shared by all runners and kept across jobs; workspaces are not
+      - toolcache:/opt/hostedtoolcache
+      - gradle:/home/runner/.gradle
+      - npm:/home/runner/.npm
+    deploy:
+      replicas: ${RUNNERS:-1}
+
+volumes:
+  toolcache:
+  gradle:
+  npm:
