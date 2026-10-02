@@ -1,53 +1,57 @@
 name: Build & Publish Release APK
 
-# Releases start locally: `task bump` (commitizen) bumps metadata.json and friends,
-# writes CHANGELOG.md and creates the tag; `git push --follow-tags` then triggers this workflow.
+# Every loop through master is a release (pushed by a person, or dispatched by the loop's auto-merge):
+#   1. the version is bumped per .github/bos.config.json "versioning" (PATCH per loop, MINOR on a
+#      breaking change); metadata.json, manifests, lockfiles and CHANGELOG.md are updated,
+#      committed as "bump: ..." and tagged vX.Y.Z
+#   2. the bump commit and tag are pushed to master
+#   3. the APK is built with that version, signed, and attached to a GitHub Release
+#   4. the loop continues: the PR master → development (back-merge) is opened
 #
-# Required secrets for signing (the same key must sign every release, or updates won't install):
-#   KEYSTORE_BASE64    base64 of the upload keystore (.jks)
+# Secrets:
+#   KEYSTORE_BASE64    base64 of the upload keystore (.jks) — the same key must sign every release
 #   KEYSTORE_PASSWORD  keystore password
 #   KEY_ALIAS          key alias inside the keystore
 #   KEY_PASSWORD       key password
 
 on:
   push:
-    tags:
-      - 'v*'
+    branches: [master]
   workflow_dispatch:
 
 permissions:
   contents: write
+  pull-requests: write
+  actions: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+env:
+  HUSKY: '0'
 
 jobs:
   build-and-release:
     name: Build & Publish Release APK
     runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/master'
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Determine release version
+      - name: Skip if this commit is already released
+        id: released
         run: |
-          VERSION=$(node -p "require('./package.json').version")
-          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
-            TAG_NAME="${GITHUB_REF#refs/tags/}"
-            if [ "$TAG_NAME" != "v$VERSION" ]; then
-              echo "::error::Tag $TAG_NAME does not match package.json version $VERSION (was the bump synced from metadata.json?)"
-              exit 1
-            fi
-          else
-            TAG_NAME="v$VERSION"
+          if TAG=$(git describe --exact-match --tags HEAD 2>/dev/null); then
+            echo "HEAD is already released as $TAG, nothing to do."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
           fi
-          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
-          echo "TAG_NAME=$TAG_NAME" >> "$GITHUB_ENV"
-          echo "Release version: $VERSION (tag: $TAG_NAME)"
 
-      - name: Build web app and prepare Android project
-        uses: ./.github/actions/build-web
-
-      - name: Decode signing keystore
+      - name: Check signing secrets
+        if: steps.released.outputs.skip != 'true'
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
         run: |
@@ -55,9 +59,40 @@ jobs:
             echo "::error::KEYSTORE_BASE64 secret is missing, refusing to publish an unsigned or randomly signed APK."
             exit 1
           fi
-          echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/upload-key.jks"
+
+      - name: Set up uv
+        if: steps.released.outputs.skip != 'true'
+        uses: astral-sh/setup-uv@v6
+
+      - name: Bump version, changelog and tag
+        if: steps.released.outputs.skip != 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          uv sync --frozen
+          python3 .github/bos/flow.py bump
+
+          VERSION=$(node -p "require('./package.json').version")
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "TAG_NAME=v$VERSION" >> "$GITHUB_ENV"
+          echo "Release version: $VERSION"
+
+      - name: Push bump commit and tag
+        if: steps.released.outputs.skip != 'true'
+        run: git push --follow-tags origin HEAD:master
+
+      - name: Build web app and prepare Android project
+        if: steps.released.outputs.skip != 'true'
+        uses: ./.github/actions/build-web
+
+      - name: Decode signing keystore
+        if: steps.released.outputs.skip != 'true'
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+        run: echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/upload-key.jks"
 
       - name: Build release APK
+        if: steps.released.outputs.skip != 'true'
         working-directory: android
         env:
           ANDROID_KEYSTORE_PATH: ${{ runner.temp }}/upload-key.jks
@@ -67,6 +102,7 @@ jobs:
         run: ./gradlew assembleRelease --no-daemon --stacktrace
 
       - name: Package release APK
+        if: steps.released.outputs.skip != 'true'
         id: prepare_apk
         run: |
           mkdir -p release_assets
@@ -76,33 +112,38 @@ jobs:
           echo "Packaged APK: $OUTPUT_NAME"
 
       - name: Upload APK as workflow artifact
+        if: steps.released.outputs.skip != 'true'
         uses: actions/upload-artifact@v4
         with:
           name: shakespeare-mobile-${{ env.TAG_NAME }}
           path: ${{ steps.prepare_apk.outputs.apk_path }}
 
       - name: Write release notes from CHANGELOG.md
-        if: startsWith(github.ref, 'refs/tags/')
+        if: steps.released.outputs.skip != 'true'
         run: |
           # cz bump writes "## vX.Y.Z (date)" sections; take the one of this release
-          touch release_notes.md
-          if [ -f CHANGELOG.md ]; then
-            awk -v tag="$TAG_NAME" '
-              /^## / { if (found) exit; if ($2 == tag) found = 1 }
-              found
-            ' CHANGELOG.md > release_notes.md
-          fi
+          awk -v tag="$TAG_NAME" '
+            /^## / { if (found) exit; if ($2 == tag) found = 1 }
+            found
+          ' CHANGELOG.md > release_notes.md
           if [ ! -s release_notes.md ]; then
             echo "Release $TAG_NAME" > release_notes.md
           fi
           cat release_notes.md
 
       - name: Publish GitHub Release
-        if: startsWith(github.ref, 'refs/tags/')
+        if: steps.released.outputs.skip != 'true'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.TAG_NAME }}
           name: "Release ${{ env.TAG_NAME }}"
           body_path: release_notes.md
           files: ${{ steps.prepare_apk.outputs.apk_path }}
+          fail_on_unmatched_files: true
           prerelease: ${{ startsWith(env.VERSION, '0.') }}
+
+      - name: Open back-merge PR master → development
+        if: steps.released.outputs.skip != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 .github/bos/flow.py next-pr master
