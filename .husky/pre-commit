@@ -1,3 +1,1 @@
-uv run --quiet task sync
-git add package.json package-lock.json pyproject.toml uv.lock
-uv run --quiet task test
+uv run --quiet task hooks:pre-commit
