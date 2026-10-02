@@ -1,7 +1,7 @@
 {
     "name": "shakespeare-mobile",
     "description": "mobile app for android and ios with optimised UX special design and with rich featchers, easy-to-use friendly UI and advanced mechanics targeted to hard task with one simple assumption: \"𝐖𝐑𝐈𝐓𝐄 𝐀 𝐁𝐎𝐎𝐊\" - for writters to writters to write books easier, better and with results attchiving faster",
-    "version": "0.1.1",
+    "version": "0.1.2",
     "authors":[
         ["Sarverott", "Sett Sarverott A.A.B. <sett@sarverott.com> (https://sett.sarverott.com)", "https://sarverott.com"]
     ],

@@ -1,3 +1,9 @@
+## v0.1.2 (2026-10-02)
+
+### Feat
+
+- **draft-gh-workflow-runner,-adding-automation-routines**: lesser repeats of same sequences - this is why routines can be turned on now
+
 ## v0.1.1 (2026-10-02)
 
 ## v0.1.0 (2026-10-02)
