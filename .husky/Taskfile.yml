@@ -10,10 +10,23 @@ includes:
     internal: true
 
 tasks:
-  pre-commit:
-    desc: Sync metadata.json into manifests and lockfiles, stage them, then run the checks
+  routines:
+    desc: Show which routines .husky/bos.config.json switches on
     dir: '{{.TASKFILE_DIR}}/..'
     cmds:
+      - python3 .husky/bos/routines.py explain
+
+  routine:add-all:
+    desc: Stage all changes, if auto_gitaddall_before_commit is on
+    dir: '{{.TASKFILE_DIR}}/..'
+    cmds:
+      - python3 .husky/bos/routines.py add-all
+
+  pre-commit:
+    desc: Stage all (routine), sync metadata.json into manifests and lockfiles, stage them, then run the checks
+    dir: '{{.TASKFILE_DIR}}/..'
+    cmds:
+      - task: routine:add-all
       - task: scripts:sync
       - git add package.json package-lock.json pyproject.toml uv.lock
       - task: scripts:sync:check
@@ -23,3 +36,9 @@ tasks:
     dir: '{{.TASKFILE_DIR}}/..'
     cmds:
       - uv run --quiet cz check --commit-msg-file {{.CLI_ARGS}}
+
+  post-commit:
+    desc: Push the branch, if auto_push_after_commit is on (never master, never mid-rebase)
+    dir: '{{.TASKFILE_DIR}}/..'
+    cmds:
+      - python3 .husky/bos/routines.py push
