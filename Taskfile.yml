@@ -30,7 +30,7 @@ tasks:
       - uv run cz commit
 
   bump:
-    desc: Bump version from commit history (metadata.json, pyproject, npm files, lockfiles), changelog and tag
+    desc: Bump version, changelog and tag (CI does this on every merge into master, don't run it by hand there)
     cmds:
       - uv run cz bump {{.CLI_ARGS}}
 
