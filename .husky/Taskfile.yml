@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=https://taskfile.dev/schema.json
+# Git hooks. The files in .husky/ only call these tasks.
+# Included by the root Taskfile as `hooks:`.
+
+version: '3'
+
+includes:
+  scripts:
+    taskfile: ../scripts/Taskfile.yml
+    internal: true
+
+tasks:
+  pre-commit:
+    desc: Sync metadata.json into manifests and lockfiles, stage them, then run the checks
+    dir: '{{.TASKFILE_DIR}}/..'
+    cmds:
+      - task: scripts:sync
+      - git add package.json package-lock.json pyproject.toml uv.lock
+      - task: scripts:sync:check
+
+  commit-msg:
+    desc: 'Reject commit messages that are not Conventional Commits, e.g. task hooks:commit-msg -- .git/COMMIT_EDITMSG'
+    dir: '{{.TASKFILE_DIR}}/..'
+    cmds:
+      - uv run --quiet cz check --commit-msg-file {{.CLI_ARGS}}

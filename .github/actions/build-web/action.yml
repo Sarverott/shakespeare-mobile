@@ -1,8 +1,8 @@
 name: Build web app and prepare Android project
 description: >
-  Clones shakespeare-gui next to this repository (package.json links it as file:../shakespeare-gui),
-  builds the GUI plugin and the app core into src/gui, syncs it into the Android project
-  and sets up JDK 21 for Gradle.
+  Sets up Node.js, runs scripts/delegated/workflow-gh/build-web.sh (clones shakespeare-gui next to
+  this repository, builds the GUI plugin and the app core into src/gui, syncs it into the Android
+  project) and sets up JDK 21 for Gradle.
 
 inputs:
   gui-ref:
@@ -19,30 +19,11 @@ runs:
         node-version: '24'
         cache: npm
 
-    - name: Clone shakespeare-gui
-      shell: bash
-      run: git clone --depth 1 --branch "${{ inputs.gui-ref }}" https://github.com/Sarverott/shakespeare-gui.git ../shakespeare-gui
-
-    - name: Build shakespeare-gui plugin
-      shell: bash
-      working-directory: ../shakespeare-gui
-      env:
-        HUSKY: '0'
-      run: |
-        npm ci
-        npm run build:lib
-
-    - name: Build app core
+    - name: Build gui plugin and app core, sync into Android project
       shell: bash
       env:
-        HUSKY: '0'
-      run: |
-        npm ci
-        npm run build
-
-    - name: Sync web build into Android project
-      shell: bash
-      run: npx cap sync android
+        GUI_REF: ${{ inputs.gui-ref }}
+      run: scripts/delegated/workflow-gh/build-web.sh
 
     - name: Set up JDK 21
       uses: actions/setup-java@v4

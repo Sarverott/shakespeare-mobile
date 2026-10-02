@@ -53,6 +53,8 @@ Useful tasks (`task --list` shows all of them):
 | `task build` | Builds the GUI and the app core into `src/gui` (Capacitor's web directory) |
 | `task android` | Builds, syncs and opens the project in Android Studio |
 | `task test` | Runs the checks |
+| `task lint` | Lints the workflows (actionlint) and the delegated shell scripts (shellcheck) |
+| `task gh:loop` | Shows how the craft loop in `.github/bos.config.json` resolves |
 | `task commit` | Commits with commitizen |
 
 ## Making a change
@@ -104,6 +106,10 @@ feature/*, fix/*  →  development  →  revision  →  testing  →  releasing 
   turns it down, and it returns to `development`.
 - The checks are: commit messages, metadata sync, unit tests, Android lint and
   an npm security audit.
+- **The workflows stay short.** Every multi-line step lives in
+  `scripts/delegated/workflow-gh/<workflow>/<step>.sh`, with a comment on top
+  saying what it does, what it reads and what it outputs. The scripts also run
+  locally, and `task gh:…` wraps the useful ones.
 
 ## Releases
 
