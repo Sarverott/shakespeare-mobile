@@ -97,15 +97,17 @@ feature/*, fix/*  →  development  →  revision  →  testing  →  releasing 
 
 ## Releases
 
-Maintainers cut releases from `master`:
+Every merge into `master` is a release, made by CI:
 
-```sh
-task bump                 # new version from the commit history, CHANGELOG.md, tag vX.Y.Z
-git push --follow-tags    # the tag triggers the release workflow
-```
+1. The version is bumped from the commit messages: `feat` → minor, `fix` →
+   patch, and a patch when there is nothing else. While the version is `0.x`, a
+   breaking change bumps the minor version.
+2. `metadata.json`, the manifests and `CHANGELOG.md` are updated, then a
+   `bump: …` commit and a `vX.Y.Z` tag go to `master`.
+3. A signed APK is built and attached to a GitHub Release, with that version's
+   notes from `CHANGELOG.md`.
 
-The release workflow builds a signed APK and publishes it on GitHub Releases,
-with that version's notes from `CHANGELOG.md`.
+Don't run `task bump` yourself, and don't push version tags; CI does both.
 
 ## Reporting bugs
 
