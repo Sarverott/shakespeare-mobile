@@ -81,31 +81,46 @@ On every commit, husky runs two hooks:
   `metadata.json`**, and never change the version by hand.
 - **commit-msg** rejects messages that don't follow Conventional Commits.
 
-## The branch flow
+## The craft loop
 
-Work moves through the stages one pull request at a time:
+Work goes around a loop of branches, one pull request per step:
 
 ```
 feature/*, fix/*  →  development  →  revision  →  testing  →  releasing  →  master
+                          ↑                                                    │
+                          └────────────────── back-merge ──────────────────────┘
+       any stage  →  rejection  →  development
 ```
 
 - `master` is the canon. Nobody commits to it directly.
-- A pull request to the next stage opens automatically on every push. Once all
-  checks pass, it merges automatically.
+- **`.github/bos.config.json` defines the loop:** which branches exist, where
+  each one goes next, whether PRs open automatically, and which steps merge on
+  their own. To see how it resolves, run `python3 .github/bos/flow.py explain`.
+- The PR to the next stage opens automatically. Once its checks pass, it merges
+  if the config allows it for that step, and the next step starts. Today
+  everything up to `master` merges automatically; the back-merge into
+  `development`, `rejection` and your `feature/*`/`fix/*` PRs wait for a person.
+- `rejection` is the way back: a maintainer sends work there by hand when a stage
+  turns it down, and it returns to `development`.
 - The checks are: commit messages, metadata sync, unit tests, Android lint and
   an npm security audit.
 
 ## Releases
 
-Maintainers cut releases from `master`:
+Every pass through `master` is a release, made by CI:
 
-```sh
-task bump                 # new version from the commit history, CHANGELOG.md, tag vX.Y.Z
-git push --follow-tags    # the tag triggers the release workflow
-```
+1. The version is bumped once per loop: **Z** (patch) normally, **Y** (minor)
+   when the loop contains a breaking change (`feat!: …` or a `BREAKING CHANGE:`
+   footer). X only changes by hand. The `versioning` section of
+   `bos.config.json` sets this.
+2. `metadata.json`, the manifests and `CHANGELOG.md` are updated, then a
+   `bump: …` commit and a `vX.Y.Z` tag go to `master`.
+3. A signed APK is built and attached to a GitHub Release, with that version's
+   notes from `CHANGELOG.md`.
+4. The back-merge PR `master → development` opens, carrying the new version
+   back to the start of the loop.
 
-The release workflow builds a signed APK and publishes it on GitHub Releases,
-with that version's notes from `CHANGELOG.md`.
+Don't run `task bump` yourself, and don't push version tags; CI does both.
 
 ## Reporting bugs
 

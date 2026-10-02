@@ -1,22 +1,56 @@
 name: PR Tests & Security Checks
 
+# Runs for PRs opened by people (pull_request) and for PRs opened by the loop itself
+# (workflow_dispatch from bos-flow.yml). When everything passes, the PR is merged if
+# .github/bos.config.json allows auto-merge for its direction, and the next step starts.
+
 on:
   pull_request:
-    branches: [development, revision, testing, releasing, master]
+    branches: [master, development, revision, testing, releasing, rejection]
     types: [opened, synchronize, reopened]
   workflow_dispatch:
+    inputs:
+      pr:
+        description: Pull request number
+        required: true
+        type: number
 
 permissions:
   contents: read
 
+concurrency:
+  group: pr-checks-${{ github.event.pull_request.number || inputs.pr }}
+  cancel-in-progress: true
+
 jobs:
+  context:
+    name: Resolve Pull Request
+    runs-on: ubuntu-latest
+    outputs:
+      number: ${{ steps.pr.outputs.number }}
+      base_sha: ${{ steps.pr.outputs.base_sha }}
+      head_sha: ${{ steps.pr.outputs.head_sha }}
+    steps:
+      - name: Read PR
+        id: pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          NUMBER: ${{ github.event.pull_request.number || inputs.pr }}
+        run: |
+          gh pr view "$NUMBER" --json number,baseRefOid,headRefOid,baseRefName,headRefName \
+            --jq '"number=\(.number)\nbase_sha=\(.baseRefOid)\nhead_sha=\(.headRefOid)\nbranches=\(.headRefName) → \(.baseRefName)"' \
+            | tee -a "$GITHUB_OUTPUT"
+
   conventions:
     name: Commit Messages & Metadata Sync
+    needs: context
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
+          ref: refs/pull/${{ needs.context.outputs.number }}/merge
           fetch-depth: 0
 
       - name: Set up uv
@@ -26,18 +60,20 @@ jobs:
         run: uv sync --frozen
 
       - name: Check commit messages (Conventional Commits)
-        if: github.event_name == 'pull_request'
-        run: uv run cz check --rev-range "${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}"
+        run: uv run cz check --rev-range "${{ needs.context.outputs.base_sha }}..${{ needs.context.outputs.head_sha }}"
 
       - name: Check package.json and pyproject.toml match metadata.json
         run: uv run python scripts/sync_metadata.py --check
 
   android:
     name: Unit Tests & Android Lint
+    needs: context
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          ref: refs/pull/${{ needs.context.outputs.number }}/merge
 
       - name: Build web app and prepare Android project
         uses: ./.github/actions/build-web
@@ -52,10 +88,13 @@ jobs:
 
   audit:
     name: NPM Security Audit
+    needs: context
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          ref: refs/pull/${{ needs.context.outputs.number }}/merge
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -66,22 +105,19 @@ jobs:
         run: npm audit --audit-level=critical
 
   auto-merge:
-    name: Auto-Merge PR (on Success)
-    needs: [conventions, android, audit]
+    name: Auto-Merge (per bos.config.json)
+    needs: [context, conventions, android, audit]
     runs-on: ubuntu-latest
-    # only PRs from this repository; forks get no secrets and must be merged by hand
-    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
     permissions:
       contents: write
       pull-requests: write
+      actions: write
     steps:
-      - name: Enable Auto-Merge
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Merge if allowed and start the next loop step
         env:
-          # FLOW_TOKEN, so the merge push triggers auto-pr.yml for the next stage
-          GH_TOKEN: ${{ secrets.FLOW_TOKEN || secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-        run: |
-          PR_NUMBER="${{ github.event.pull_request.number }}"
-          echo "Merging PR #$PR_NUMBER (all checks passed)..."
-          # --auto waits for branch protection rules if any; otherwise merge directly
-          gh pr merge "$PR_NUMBER" --auto --merge || gh pr merge "$PR_NUMBER" --merge
+        run: python3 .github/bos/flow.py automerge "${{ needs.context.outputs.number }}"
