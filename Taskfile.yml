@@ -30,9 +30,10 @@ tasks:
       - task: scripts:lint
 
   commit:
-    desc: Commit with commitizen (conventional message prompt)
+    desc: Commit with commitizen (conventional message prompt); routines from .husky/bos.config.json apply
     interactive: true
     cmds:
+      - task: hooks:routine:add-all
       - uv run cz commit
 
   bump:

@@ -1,0 +1,50 @@
+# yaml-language-server: $schema=https://taskfile.dev/schema.json
+# Self-hosted GitHub Actions runners (docker compose). Run from here: task -d scripts/tools/gh-runners <task>
+
+version: '3'
+
+dotenv: ['.env']
+
+vars:
+  REPOSITORY: '{{.REPOSITORY | default "Sarverott/shakespeare-mobile"}}'
+
+tasks:
+  default:
+    cmds:
+      - task --list
+    silent: true
+
+  build:
+    desc: Build the runner image
+    dir: '{{.TASKFILE_DIR}}'
+    cmds:
+      - docker compose build
+
+  up:
+    desc: Start the runners (RUNNERS=n for more); uses `gh auth token` unless ACCESS_TOKEN is set
+    dir: '{{.TASKFILE_DIR}}'
+    cmds:
+      - ACCESS_TOKEN="${ACCESS_TOKEN:-$(gh auth token)}" docker compose up -d --build
+
+  down:
+    desc: Stop the runners; each deregisters itself from GitHub
+    dir: '{{.TASKFILE_DIR}}'
+    cmds:
+      - ACCESS_TOKEN="${ACCESS_TOKEN:-unused}" docker compose down
+
+  logs:
+    desc: Follow the runners' logs
+    dir: '{{.TASKFILE_DIR}}'
+    cmds:
+      - ACCESS_TOKEN="${ACCESS_TOKEN:-unused}" docker compose logs -f
+
+  status:
+    desc: List the self-hosted runners GitHub knows for the repository
+    cmds:
+      - gh api "repos/{{.REPOSITORY}}/actions/runners" --jq '.runners[] | "\(.name)  \(.status)  busy=\(.busy)  [\([.labels[].name] | join(", "))]"'
+
+  bump-versions:
+    desc: Print the latest runner and Android cmdline-tools versions with checksums, for the Dockerfile ARGs
+    cmds:
+      - gh api repos/actions/runner/releases/latest --jq '"RUNNER_VERSION=\(.tag_name | ltrimstr("v"))\nRUNNER_SHA256=\(.body | capture("<!-- BEGIN SHA linux-x64 -->(?<s>[0-9a-f]+)<!-- END SHA linux-x64 -->").s)"'
+      - 'echo "Android cmdline-tools: see https://developer.android.com/studio#command-line-tools-only (sha256 the zip yourself)"'
